@@ -1,10 +1,14 @@
 services:
   - type: web
-    name: BB-SQL
+    name: a11yassist-backend
     env: python
-    plan: free
+    plan: starter
     buildCommand: pip install -r requirements.txt
-    startCommand: python app.py
+    startCommand: gunicorn --workers 2 --timeout 120 --bind 0.0.0.0:$PORT app:app
     envVars:
-      - key: FLASK_ENV
-        value: production
+      - key: BarrierBreak
+        scope: run
+        value: your-random-secret-key-here
+      - key: RENDER
+        scope: run
+        value: "true"
