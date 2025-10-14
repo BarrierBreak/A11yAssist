@@ -3,5 +3,6 @@ Flask-Cors
 Flask-Session
 psycopg2-binary
 requests
-
+gunicorn
+gevent
 Werkzeug
