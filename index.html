@@ -903,36 +903,32 @@
         }
 
         async function login(connStr, azureEndpoint, azureKey) {
+            const response = await fetch(`${state.apiBaseUrl}/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    conn_str: connStr,
+                    azure_endpoint: azureEndpoint,
+                    azure_key: azureKey
+                }),
+                credentials: 'include'
+            });
+
+            // Read response body ONCE safely
+            const text = await response.text();
+            let data;
+
             try {
-                const response = await fetch(`${state.apiBaseUrl}/login`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        conn_str: connStr,
-                        azure_endpoint: azureEndpoint,
-                        azure_key: azureKey
-                    }),
-                    credentials: 'include'
-                });
-
-                let data;
-                try {
-                    data = await response.json();
-                } catch {
-                    const text = await response.text();
-                    throw new Error(`Server returned non-JSON: ${text || 'empty response'}`);
-                }
-
-                if (!response.ok) {
-                    throw new Error(data.error || 'Login failed');
-                }
-
-                return data;
-            } catch (err) {
-                console.error('Login error:', err);
-                alert(`Login failed: ${err.message}`);
-                throw err;
+                data = JSON.parse(text);
+            } catch {
+                data = { error: text || 'Empty response or non-JSON body' };
             }
+
+            if (!response.ok) {
+                throw new Error(data.error || `HTTP ${response.status}: ${text}`);
+            }
+
+            return data;
         }
 
         function createUserMessage(text) {
