@@ -867,6 +867,12 @@ def query_route():
             "generated_sql": generated_sql if 'generated_sql' in locals() else None
         }), 500
 
+@app.after_request
+def disable_proxy_buffering(response):
+    response.headers["Cache-Control"] = "no-cache"
+    response.headers["X-Accel-Buffering"] = "no"
+    response.headers["Connection"] = "keep-alive"
+    return response
 
 @app.route("/query_stream", methods=["POST"])
 def query_stream_route():
