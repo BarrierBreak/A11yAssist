@@ -1117,20 +1117,19 @@
         scrollToBottom();
 
         try {
-            await fetch(`${state.apiBaseUrl}/query`, {
+            const response = await fetch(`${state.apiBaseUrl}/query`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({query: query, execute: true}),
                 credentials: 'include'
             });
-
+        
             const data = await response.json();
             spinnerMessage.remove();
-
+        
             const assistantMessage = createAssistantMessage(data);
             elements.chatContainer.appendChild(assistantMessage);
             scrollToBottom();
-
         } catch (error) {
             spinnerMessage.remove();
             const errorResponse = {
@@ -1140,7 +1139,8 @@
             const errorMessage = createAssistantMessage(errorResponse);
             elements.chatContainer.appendChild(errorMessage);
             scrollToBottom();
-        } finally {
+        }
+ finally {
             elements.sendBtn.disabled = false;
             elements.queryInput.focus();
         }
