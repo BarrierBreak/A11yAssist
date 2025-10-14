@@ -4,7 +4,7 @@ services:
     env: python
     plan: starter
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn --workers 2 --timeout 120 --bind 0.0.0.0:$PORT app:app
+    startCommand: startCommand: gunicorn -k gevent --worker-connections 1000 --timeout 0 app:app
     envVars:
       - key: BarrierBreak
         scope: run
