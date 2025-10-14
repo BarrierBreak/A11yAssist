@@ -34,7 +34,7 @@ os.makedirs(app.config["SESSION_FILE_DIR"], exist_ok=True)
 
 app.config["SESSION_PERMANENT"] = False
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
-app.config["SESSION_COOKIE_SECURE"] = False
+app.config["SESSION_COOKIE_SECURE"] = True
 
 Session(app)
 
@@ -769,9 +769,9 @@ def query_route():
         return jsonify({"error": "query is required"}), 400
 
     # Get credentials from session
-    conn_str = session.get("conn_str")
-    azure_key = session.get("azure_key")
-    azure_endpoint = session.get("azure_endpoint")
+    conn_str = "postgresql://postgres:nidshwngisgnxtab@74.208.202.238:5444/a11y-now-master"
+    azure_key = "3ZwtHD7mcTuGgnfvVemTX49aqtQxaq62Jcshb2Yrgmux4xcXEbFWJQQJ99ALACHYHv6XJ3w3AAAAACOG08Rb"
+    azure_endpoint = "https://ai-barrierbreak6904ai389817507120.openai.azure.com/openai/deployments/gpt-4o/chat/completions?api-version=2025-01-01-preview"
     
     if not all([conn_str, azure_key, azure_endpoint]):
         return jsonify({"error": "Not authenticated. Please login first."}), 401
@@ -895,9 +895,9 @@ def query_stream_route():
         return jsonify({"error": "query is required"}), 400
 
     # Extract credentials before generator (prevents session locking during long stream)
-    conn_str = session.get("conn_str")
-    azure_key = session.get("azure_key")
-    azure_endpoint = session.get("azure_endpoint")
+    conn_str = "postgresql://postgres:nidshwngisgnxtab@74.208.202.238:5444/a11y-now-master"
+    azure_key = "3ZwtHD7mcTuGgnfvVemTX49aqtQxaq62Jcshb2Yrgmux4xcXEbFWJQQJ99ALACHYHv6XJ3w3AAAAACOG08Rb"
+    azure_endpoint = "https://ai-barrierbreak6904ai389817507120.openai.azure.com/openai/deployments/gpt-4o/chat/completions?api-version=2025-01-01-preview"
 
     if not all([conn_str, azure_key, azure_endpoint]):
         return jsonify({"error": "Not authenticated. Please login first."}), 401
