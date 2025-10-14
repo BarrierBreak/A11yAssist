@@ -518,28 +518,38 @@ def determine_narrative_scope(total_results):
 
 
 def generate_narrative(user_query, analysis, sql_query, azure_key, azure_endpoint):
-    """Generate narrative explanation of results"""
+    """Generate insightful narrative explanation with data-driven analysis"""
     query_type = analysis["query_type"]
     total_results = analysis["total_results"]
     
     if query_type == "empty":
-        return {"formatted": "**No Results Found**\n\nNo data matched your query criteria.", "format": "markdown"}
+        return {
+            "formatted": "I couldn't find any data matching your criteria. You might want to try adjusting your filters or search terms.",
+            "format": "markdown"
+        }
     
     if query_type == "simple_count":
         count_val = analysis["summary"]["total_count"]
         count_col = analysis["summary"]["count_column"]
         
-        prompt = f"""Generate a clear answer to: "{user_query}"
+        prompt = f"""Answer this question naturally: "{user_query}"
 
-Result: The {count_col} is {count_val:,}
+Data: {count_col} = {count_val:,}
 
-Write a natural 2-3 sentence response using this exact number."""
+Provide a conversational answer that:
+1. Directly answers the question in plain language
+2. Adds ONE brief contextual insight (is this high/low/significant?)
+3. Keep it 3-4 sentences maximum
+4. Use **bold** only for the key number
+5. Sound like a helpful analyst, not a robot
+
+Do NOT just repeat the number. Explain what it means."""
         
         try:
             result = call_azure_llm_with_retry(prompt, azure_key, azure_endpoint, max_tokens=2000, temperature=0.1)
             narrative = result['choices'][0]['message']['content'].strip()
         except:
-            narrative = f"The {count_col} is **{count_val:,}**."
+            narrative = f"Based on the data, the {count_col.replace('_', ' ')} is **{count_val:,}**."
         
         return {"formatted": narrative, "format": "markdown"}
     
@@ -554,7 +564,8 @@ Write a natural 2-3 sentence response using this exact number."""
         
         top_items = enriched_results[:narrative_limit]
         
-        items_text = []
+        # Format top items for LLM
+        items_list = []
         for i, item in enumerate(top_items, 1):
             group_parts = []
             for col in grouping_cols:
@@ -563,55 +574,84 @@ Write a natural 2-3 sentence response using this exact number."""
                     val = "NULL"
                 elif isinstance(val, str) and len(val) > 50:
                     val = val[:50] + "..."
-                group_parts.append(f"{val}")
+                group_parts.append(str(val))
             
-            group_str = ", ".join(group_parts) if len(group_parts) > 1 else group_parts[0] if group_parts else "Unknown"
+            group_str = " - ".join(group_parts) if len(group_parts) > 1 else (group_parts[0] if group_parts else "Unknown")
             count_value = item[agg_col]
             percentage = item['percentage']
-            items_text.append(f"{i}. {group_str}: {count_value:,} ({percentage}%)")
+            items_list.append(f"{i}. {group_str}: {count_value:,} ({percentage}%)")
         
-        prompt = f"""Generate a formatted answer for: "{user_query}"
+        prompt = f"""Answer this naturally: "{user_query}"
 
+DATA (USE EXACT VALUES ONLY):
 Total {agg_col.replace('_', ' ')}: {total_agg:,}
-Categories: {total_results}
+Number of categories: {total_results}
 
-Top {narrative_limit} results:
-{chr(10).join(items_text)}
+Top {narrative_limit} breakdown:
+{chr(10).join(items_list)}
 
-Format:
-1. Summary paragraph with **bold** key numbers
-2. ### Top Results heading
-3. Numbered list of results
-4. Use markdown: **bold**, headings (###)
+Provide a response that:
+1. Opens with a natural answer including the total (use **bold**)
+2. Highlights the key insight - what's the most notable pattern in the data?
+   - Is one category dominant? By how much?
+   - Are top few concentrated or is it spread evenly?
+   - Compare actual numbers (e.g., "X has 2x more than Y")
+3. List the top {min(5, narrative_limit)} results with their values
+4. End with a brief one-line takeaway
 
-Return ONLY formatted markdown text."""
+Rules:
+- Use ONLY the exact numbers provided above
+- Make comparisons between the actual values
+- Sound conversational but precise
+- Use markdown formatting
+- NO guessing or assumptions
+
+Return ONLY the formatted response."""
         
         try:
             result = call_azure_llm_with_retry(prompt, azure_key, azure_endpoint, max_tokens=2000, temperature=0.1)
             narrative = result['choices'][0]['message']['content'].strip()
         except:
-            narrative = f"Found **{total_agg:,}** across **{total_results}** categories."
+            # Simple fallback
+            top_name = top_items[0][grouping_cols[0]]
+            top_count = top_items[0][agg_col]
+            top_pct = top_items[0]['percentage']
+            
+            narrative = f"""Found **{total_agg:,}** total across **{total_results}** categories.
+
+**{top_name}** leads with **{top_count:,}** ({top_pct}%).
+
+**Top {min(5, narrative_limit)} Results:**
+{chr(10).join(items_list[:5])}"""
         
         return {"formatted": narrative, "format": "markdown"}
     
     if query_type == "simple_select":
         columns = analysis["summary"]["columns"]
         
-        prompt = f"""Generate answer for: "{user_query}"
+        prompt = f"""Answer naturally: "{user_query}"
 
-Found {total_results} records with columns: {', '.join(columns)}
+Found: {total_results} records
+Columns: {', '.join(columns)}
 
-Write 2-3 sentences. Use **bold** for count. Return markdown only."""
+Provide a brief, conversational response:
+1. State what was found in plain language
+2. Mention it's a detailed dataset (records + key fields)
+3. 2-3 sentences max
+4. Sound helpful and clear
+
+Use **bold** for the count only."""
         
         try:
             result = call_azure_llm_with_retry(prompt, azure_key, azure_endpoint, max_tokens=2000, temperature=0.1)
             narrative = result['choices'][0]['message']['content'].strip()
         except:
-            narrative = f"Found **{total_results}** matching records."
+            narrative = f"Found **{total_results}** records with data for {', '.join(columns[:3])}{'...' if len(columns) > 3 else ''}."
         
         return {"formatted": narrative, "format": "markdown"}
     
-    return {"formatted": "**No Results Found**", "format": "markdown"}
+    return {"formatted": "I couldn't generate insights for this query type.", "format": "markdown"}
+
 
 
 def is_safe_sql(sql_query):
