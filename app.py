@@ -17,7 +17,9 @@ cors_origins = [
     "http://localhost:8080",
     "http://127.0.0.1:8080",
     "http://ai-test-aitest-lef0n4-8c8462-74-208-202-238.traefik.me",
+    "https://ai-test-aitest-lef0n4-8c8462-74-208-202-238.traefik.me"  # add this
 ]
+
 
 CORS(app, 
      supports_credentials=True, 
