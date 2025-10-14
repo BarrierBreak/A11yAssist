@@ -820,575 +820,353 @@
         </div>
     </div>
 
-    <script>
-        const state = {
-            isAuthenticated: false,
-            apiBaseUrl: getApiBaseUrl(),
-            messages: [],
-            currentEventSource: null
-        };
+<script>
+    const state = {
+        isAuthenticated: false,
+        apiBaseUrl: getApiBaseUrl(),
+        messages: []
+    };
 
-        // CRITICAL FIX: Detect backend URL correctly
-        function getApiBaseUrl() {
-            const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-            
-            if (isLocal) {
-                return 'http://localhost:8080';
+    function getApiBaseUrl() {
+        const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        if (isLocal) return 'http://localhost:8080';
+        return 'https://a11yassist.onrender.com';
+    }
+
+    const elements = {
+        loginModal: document.getElementById('loginModal'),
+        loginForm: document.getElementById('loginForm'),
+        loginBtn: document.getElementById('loginBtn'),
+        loginError: document.getElementById('loginError'),
+        app: document.getElementById('app'),
+        chatContainer: document.getElementById('chatContainer'),
+        queryInput: document.getElementById('queryInput'),
+        sendBtn: document.getElementById('sendBtn'),
+        logoutBtn: document.getElementById('logoutBtn')
+    };
+
+    function parseMarkdown(text) {
+        if (!text) return '';
+        let html = text;
+        html = html.replace(/^#### (.*$)/gim, '<h4>$1</h4>');
+        html = html.replace(/^### (.*$)/gim, '<h3>$1</h3>');
+        html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
+        html = html.replace(/`(.*?)`/g, '<code>$1</code>');
+        html = html.replace(/^\d+\.\s+(.*)$/gim, '<li>$1</li>');
+        html = html.replace(/(<li>.*<\/li>)/s, '<ol>$1</ol>');
+        html = html.split('\n\n').map(para => {
+            if (para.trim() && !para.startsWith('<h') && !para.startsWith('<ol') && !para.startsWith('<ul')) {
+                return '<p>' + para.trim() + '</p>';
             }
-            
-            // For Render: Backend URL is set as environment variable
-            // If not set, use same domain as frontend
-            return 'https://a11yassist.onrender.com';
-        }
+            return para;
+        }).join('\n');
+        return html;
+    }
 
-        const elements = {
-            loginModal: document.getElementById('loginModal'),
-            loginForm: document.getElementById('loginForm'),
-            loginBtn: document.getElementById('loginBtn'),
-            loginError: document.getElementById('loginError'),
-            app: document.getElementById('app'),
-            chatContainer: document.getElementById('chatContainer'),
-            queryInput: document.getElementById('queryInput'),
-            sendBtn: document.getElementById('sendBtn'),
-            logoutBtn: document.getElementById('logoutBtn')
-        };
-
-        function parseMarkdown(text) {
-            if (!text) return '';
-            let html = text;
-            html = html.replace(/^#### (.*$)/gim, '<h4>$1</h4>');
-            html = html.replace(/^### (.*$)/gim, '<h3>$1</h3>');
-            html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-            html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
-            html = html.replace(/`(.*?)`/g, '<code>$1</code>');
-            html = html.replace(/^\d+\.\s+(.*)$/gim, '<li>$1</li>');
-            html = html.replace(/(<li>.*<\/li>)/s, '<ol>$1</ol>');
-            html = html.split('\n\n').map(para => {
-                if (para.trim() && !para.startsWith('<h') && !para.startsWith('<ol') && !para.startsWith('<ul')) {
-                    return '<p>' + para.trim() + '</p>';
-                }
-                return para;
-            }).join('\n');
-            return html;
+    function renderNarrative(narrativeData) {
+        if (!narrativeData) return '<div class="narrative-content"><p>No narrative available.</p></div>';
+        if (typeof narrativeData === 'object' && narrativeData.formatted) {
+            return `<div class="narrative-content">${parseMarkdown(narrativeData.formatted)}</div>`;
         }
-
-        function renderNarrative(narrativeData) {
-            if (!narrativeData) return '<div class="narrative-content"><p>No narrative available.</p></div>';
-            if (typeof narrativeData === 'object' && narrativeData.formatted) {
-                return `<div class="narrative-content">${parseMarkdown(narrativeData.formatted)}</div>`;
-            }
-            if (typeof narrativeData === 'string') {
-                return `<div class="narrative-content">${parseMarkdown(narrativeData)}</div>`;
-            }
-            return '<div class="narrative-content"><p>Unable to render narrative.</p></div>';
+        if (typeof narrativeData === 'string') {
+            return `<div class="narrative-content">${parseMarkdown(narrativeData)}</div>`;
         }
-        
-        function formatTimestamp() {
-            const now = new Date();
-            return now.toLocaleTimeString('en-US', {hour: '2-digit', minute: '2-digit'});
-        }
+        return '<div class="narrative-content"><p>Unable to render narrative.</p></div>';
+    }
 
-        function formatColumnName(name) {
-            return name.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-        }
+    function formatTimestamp() {
+        const now = new Date();
+        return now.toLocaleTimeString('en-US', {hour: '2-digit', minute: '2-digit'});
+    }
 
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
+    function formatColumnName(name) {
+        return name.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+    }
 
-        function copyToClipboard(text) {
-            navigator.clipboard.writeText(text);
-        }
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
 
-        async function login(connStr, azureEndpoint, azureKey) {
-            const response = await fetch(`${state.apiBaseUrl}/login`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    conn_str: connStr,
-                    azure_endpoint: azureEndpoint,
-                    azure_key: azureKey
-                }),
-                credentials: 'include'
+    function copyToClipboard(text) {
+        navigator.clipboard.writeText(text);
+    }
+
+    async function login(connStr, azureEndpoint, azureKey) {
+        const response = await fetch(`${state.apiBaseUrl}/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ conn_str: connStr, azure_endpoint: azureEndpoint, azure_key: azureKey }),
+            credentials: 'include'
+        });
+
+        const text = await response.text();
+        let data;
+        try { data = JSON.parse(text); } 
+        catch { data = { error: text || 'Empty response or non-JSON body' }; }
+
+        if (!response.ok) throw new Error(data.error || `HTTP ${response.status}: ${text}`);
+        return data;
+    }
+
+    function createUserMessage(text) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'message user';
+        messageDiv.innerHTML = `
+            <div class="message-content">
+                <div class="message-text">${escapeHtml(text)}</div>
+                <div class="message-time">${formatTimestamp()}</div>
+            </div>
+        `;
+        return messageDiv;
+    }
+
+    function createSpinnerMessage() {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'message assistant';
+        messageDiv.innerHTML = `
+            <div class="message-content">
+                <div class="spinner-container">
+                    <div class="spinner"></div>
+                    <span>Processing your query...</span>
+                </div>
+            </div>
+        `;
+        return messageDiv;
+    }
+
+    function createDataTable(data, pagination) {
+        if (!data || data.length === 0) return '<div class="empty-state">No results found</div>';
+
+        const columns = Object.keys(data[0]);
+        const totalResults = pagination?.total_results || data.length;
+        const pageSize = pagination?.page_size || data.length;
+        const page = pagination?.page || 1;
+        const start = ((page - 1) * pageSize) + 1;
+        const end = Math.min(start + data.length - 1, totalResults);
+
+        let html = `
+            <div class="table-info">Showing ${start}-${end} of ${totalResults} results</div>
+            <div class="table-wrapper">
+                <table>
+                    <thead><tr>${columns.map(col => `<th>${formatColumnName(col)}</th>`).join('')}</tr></thead>
+                    <tbody>
+        `;
+        data.forEach(row => {
+            html += '<tr>';
+            columns.forEach(col => {
+                let value = row[col];
+                if (value === null || value === undefined) value = '<em>null</em>';
+                else if (typeof value === 'object') value = JSON.stringify(value);
+                else value = escapeHtml(String(value));
+                html += `<td>${value}</td>`;
             });
+            html += '</tr>';
+        });
+        html += '</tbody></table></div>';
+        return html;
+    }
 
-            // Read response body ONCE safely
-            const text = await response.text();
-            let data;
-
-            try {
-                data = JSON.parse(text);
-            } catch {
-                data = { error: text || 'Empty response or non-JSON body' };
-            }
-
-            if (!response.ok) {
-                throw new Error(data.error || `HTTP ${response.status}: ${text}`);
-            }
-
-            return data;
-        }
-
-        function createUserMessage(text) {
-            const messageDiv = document.createElement('div');
-            messageDiv.className = 'message user';
-            messageDiv.innerHTML = `
-                <div class="message-content">
-                    <div class="message-text">${escapeHtml(text)}</div>
-                    <div class="message-time">${formatTimestamp()}</div>
+    function createMetadataDisplay(metadata, tablesUsed) {
+        return `
+            <div class="metadata-grid">
+                <div class="metadata-item">
+                    <div class="metadata-label">Execution Time</div>
+                    <div class="metadata-value">${metadata.execution_time_ms}ms</div>
                 </div>
-            `;
-            return messageDiv;
-        }
-
-        function createProgressMessage() {
-            const messageDiv = document.createElement('div');
-            messageDiv.className = 'message assistant';
-            messageDiv.innerHTML = `
-                <div class="message-content">
-                    <div class="progress-container">
-                        <div class="progress-bar-wrapper">
-                            <div class="progress-bar" style="width: 0%"></div>
-                        </div>
-                        <div class="progress-message">
-                            <div class="spinner"></div>
-                            <span class="progress-text">Initializing...</span>
-                        </div>
-                        <div class="progress-steps"></div>
-                    </div>
+                <div class="metadata-item">
+                    <div class="metadata-label">Query Type</div>
+                    <div class="metadata-value"><span class="badge badge-primary">${metadata.query_type}</span></div>
                 </div>
-            `;
-            return messageDiv;
-        }
-
-        function updateProgress(messageDiv, step, message, progress, tables) {
-            const progressBar = messageDiv.querySelector('.progress-bar');
-            const progressText = messageDiv.querySelector('.progress-text');
-            const progressSteps = messageDiv.querySelector('.progress-steps');
-            
-            if (progressBar) progressBar.style.width = `${progress}%`;
-            if (progressText) progressText.textContent = message;
-            
-            const steps = [
-                { key: 'schema_loading', label: 'Loading schema' },
-                { key: 'table_detection', label: 'Detecting tables' },
-                { key: 'metadata_loading', label: 'Loading metadata' },
-                { key: 'sql_generation', label: 'Generating SQL' },
-                { key: 'execution', label: 'Executing query' },
-                { key: 'narrative_generation', label: 'Creating narrative' }
-            ];
-            
-            let stepsHtml = '';
-            for (const s of steps) {
-                let icon = '○';
-                let className = '';
-                
-                if (step.includes(s.key)) {
-                    if (step.includes('_loaded') || step.includes('_generated') || step.includes('_detected') || step === 'executed') {
-                        icon = '✓';
-                        className = 'completed';
-                    } else {
-                        icon = '◉';
-                        className = 'active';
-                    }
-                }
-                
-                stepsHtml += `<div class="progress-step ${className}">
-                    <span class="progress-step-icon">${icon}</span>
-                    <span>${s.label}</span>
-                </div>`;
-            }
-            
-            if (tables && tables.length > 0) {
-                stepsHtml += `<div class="progress-step completed">
-                    <span class="progress-step-icon">✓</span>
-                    <span>Tables: ${tables.join(', ')}</span>
-                </div>`;
-            }
-            
-            if (progressSteps) progressSteps.innerHTML = stepsHtml;
-        }
-
-        function createDataTable(data, pagination) {
-            if (!data || data.length === 0) {
-                return '<div class="empty-state">No results found</div>';
-            }
-
-            const columns = Object.keys(data[0]);
-            const totalResults = pagination?.total_results || data.length;
-            const pageSize = pagination?.page_size || data.length;
-            const page = pagination?.page || 1;
-            const start = ((page - 1) * pageSize) + 1;
-            const end = Math.min(start + data.length - 1, totalResults);
-
-            let html = `
-                <div class="table-info">
-                    Showing ${start}-${end} of ${totalResults} results
+                <div class="metadata-item">
+                    <div class="metadata-label">Joins Used</div>
+                    <div class="metadata-value"><span class="badge ${metadata.joins_used ? 'badge-success' : 'badge-primary'}">${metadata.joins_used ? 'Yes' : 'No'}</span></div>
                 </div>
-                <div class="table-wrapper">
-                    <table>
-                        <thead>
-                            <tr>
-                                ${columns.map(col => `<th>${formatColumnName(col)}</th>`).join('')}
-                            </tr>
-                        </thead>
-                        <tbody>
-            `;
-
-            data.forEach(row => {
-                html += '<tr>';
-                columns.forEach(col => {
-                    let value = row[col];
-                    if (value === null || value === undefined) {
-                        value = '<em>null</em>';
-                    } else if (typeof value === 'object') {
-                        value = JSON.stringify(value);
-                    } else {
-                        value = escapeHtml(String(value));
-                    }
-                    html += `<td>${value}</td>`;
-                });
-                html += '</tr>';
-            });
-
-            html += `
-                        </tbody>
-                    </table>
+                <div class="metadata-item">
+                    <div class="metadata-label">Tables Used</div>
+                    <div class="tags">${tablesUsed.map(table => `<span class="tag">${table}</span>`).join('')}</div>
                 </div>
-            `;
+            </div>
+        `;
+    }
 
-            return html;
-        }
+    function createAssistantMessage(response) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'message assistant';
 
-        function createMetadataDisplay(metadata, tablesUsed) {
-            return `
-                <div class="metadata-grid">
-                    <div class="metadata-item">
-                        <div class="metadata-label">Execution Time</div>
-                        <div class="metadata-value">${metadata.execution_time_ms}ms</div>
-                    </div>
-                    <div class="metadata-item">
-                        <div class="metadata-label">Query Type</div>
-                        <div class="metadata-value">
-                            <span class="badge badge-primary">${metadata.query_type}</span>
-                        </div>
-                    </div>
-                    <div class="metadata-item">
-                        <div class="metadata-label">Joins Used</div>
-                        <div class="metadata-value">
-                            <span class="badge ${metadata.joins_used ? 'badge-success' : 'badge-primary'}">
-                                ${metadata.joins_used ? 'Yes' : 'No'}
-                            </span>
-                        </div>
-                    </div>
-                    <div class="metadata-item">
-                        <div class="metadata-label">Tables Used</div>
-                        <div class="tags">
-                            ${tablesUsed.map(table => `<span class="tag">${table}</span>`).join('')}
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
+        const narrative = response.narrative;
+        const hasData = response.data?.results && response.data.results.length > 0;
+        const hasError = response.execution_error;
 
-        function createAssistantMessage(response) {
-            const messageDiv = document.createElement('div');
-            messageDiv.className = 'message assistant';
+        let contentHtml = `<div class="message-content">${renderNarrative(narrative)}`;
 
-            const narrative = response.narrative;
-            const hasData = response.data?.results && response.data.results.length > 0;
-            const hasError = response.execution_error;
+        if (hasError) contentHtml += `<div class="error-box"><strong>Error:</strong> ${escapeHtml(hasError)}</div>`;
 
-            let contentHtml = `
-                <div class="message-content">
-                    ${renderNarrative(narrative)}
-            `;
-
-            if (hasError) {
-                contentHtml += `
-                    <div class="error-box">
-                        <strong>Error:</strong> ${escapeHtml(hasError)}
-                    </div>
-                `;
-            }
-
-            if (response.generated_sql) {
-                const sqlId = 'sql-' + Date.now();
-                contentHtml += `
-                    <div class="panel" id="${sqlId}">
-                        <div class="panel-header" onclick="togglePanel('${sqlId}')">
-                            <div class="panel-title">
-                                <span class="panel-icon">▼</span>
-                                View SQL Query
-                            </div>
-                            <button class="btn-copy" onclick="event.stopPropagation(); copyToClipboard(\`${response.generated_sql.replace(/`/g, '\\`')}\`)">
-                                Copy
-                            </button>
-                        </div>
-                        <div class="panel-body">
-                            <pre class="sql-code">${escapeHtml(response.generated_sql)}</pre>
-                        </div>
-                    </div>
-                `;
-            }
-
-            if (hasData) {
-                const dataId = 'data-' + Date.now();
-                contentHtml += `
-                    <div class="panel" id="${dataId}">
-                        <div class="panel-header" onclick="togglePanel('${dataId}')">
-                            <div class="panel-title">
-                                <span class="panel-icon">▼</span>
-                                Data Preview
-                            </div>
-                        </div>
-                        <div class="panel-body">
-                            ${createDataTable(response.data.results, response.data)}
-                        </div>
-                    </div>
-                `;
-            }
-
-            if (response.metadata) {
-                const metaId = 'meta-' + Date.now();
-                contentHtml += `
-                    <div class="panel collapsed" id="${metaId}">
-                        <div class="panel-header" onclick="togglePanel('${metaId}')">
-                            <div class="panel-title">
-                                <span class="panel-icon">▼</span>
-                                Query Metadata
-                            </div>
-                        </div>
-                        <div class="panel-body">
-                            ${createMetadataDisplay(response.metadata, response.tables_used)}
-                        </div>
-                    </div>
-                `;
-            }
-
+        if (response.generated_sql) {
+            const sqlId = 'sql-' + Date.now();
             contentHtml += `
-                    <div class="message-time">${formatTimestamp()}</div>
+                <div class="panel" id="${sqlId}">
+                    <div class="panel-header" onclick="togglePanel('${sqlId}')">
+                        <div class="panel-title"><span class="panel-icon">▼</span>View SQL Query</div>
+                        <button class="btn-copy" onclick="event.stopPropagation(); copyToClipboard(\`${response.generated_sql.replace(/`/g, '\\`')}\`)">Copy</button>
+                    </div>
+                    <div class="panel-body"><pre class="sql-code">${escapeHtml(response.generated_sql)}</pre></div>
                 </div>
             `;
-
-            messageDiv.innerHTML = contentHtml;
-            return messageDiv;
         }
 
-        function togglePanel(panelId) {
-            const panel = document.getElementById(panelId);
-            if (panel) panel.classList.toggle('collapsed');
-        }
-
-        function scrollToBottom() {
-            elements.chatContainer.scrollTop = elements.chatContainer.scrollHeight;
-        }
-
-        function clearWelcomeMessage() {
-            const welcome = elements.chatContainer.querySelector('.welcome-message');
-            if (welcome) welcome.remove();
-        }
-
-        async function handleLogin(e) {
-            e.preventDefault();
-
-            const connStr = document.getElementById('connStr').value.trim();
-            const azureEndpoint = document.getElementById('azureEndpoint').value.trim();
-            const azureKey = document.getElementById('azureKey').value.trim();
-
-            elements.loginBtn.disabled = true;
-            elements.loginBtn.textContent = 'Connecting...';
-            elements.loginError.style.display = 'none';
-
-            try {
-                await login(connStr, azureEndpoint, azureKey);
-                state.isAuthenticated = true;
-                elements.loginModal.classList.remove('active');
-                elements.app.style.display = 'block';
-                elements.queryInput.focus();
-            } catch (error) {
-                elements.loginError.textContent = error.message;
-                elements.loginError.style.display = 'block';
-            } finally {
-                elements.loginBtn.disabled = false;
-                elements.loginBtn.textContent = 'Connect';
-            }
-        }
-
-        function handleLogout() {
-            if (state.currentEventSource) {
-                state.currentEventSource.close();
-                state.currentEventSource = null;
-            }
-            
-            state.isAuthenticated = false;
-            state.messages = [];
-            elements.app.style.display = 'none';
-            elements.loginModal.classList.add('active');
-            elements.chatContainer.innerHTML = `
-                <div class="welcome-message">
-                    <h1 class="welcome-title">Welcome to A11yAssist</h1>
-                    
+        if (hasData) {
+            const dataId = 'data-' + Date.now();
+            contentHtml += `
+                <div class="panel" id="${dataId}">
+                    <div class="panel-header" onclick="togglePanel('${dataId}')">
+                        <div class="panel-title"><span class="panel-icon">▼</span>Data Preview</div>
+                    </div>
+                    <div class="panel-body">${createDataTable(response.data.results, response.data)}</div>
                 </div>
             `;
-            elements.loginForm.reset();
         }
 
-        async function handleSendQuery() {
-            const query = elements.queryInput.value.trim();
+        if (response.metadata) {
+            const metaId = 'meta-' + Date.now();
+            contentHtml += `
+                <div class="panel collapsed" id="${metaId}">
+                    <div class="panel-header" onclick="togglePanel('${metaId}')">
+                        <div class="panel-title"><span class="panel-icon">▼</span>Query Metadata</div>
+                    </div>
+                    <div class="panel-body">${createMetadataDisplay(response.metadata, response.tables_used)}</div>
+                </div>
+            `;
+        }
 
-            if (!query) return;
+        contentHtml += `<div class="message-time">${formatTimestamp()}</div></div>`;
+        messageDiv.innerHTML = contentHtml;
+        return messageDiv;
+    }
 
-            clearWelcomeMessage();
+    function togglePanel(panelId) {
+        const panel = document.getElementById(panelId);
+        if (panel) panel.classList.toggle('collapsed');
+    }
 
-            const userMessage = createUserMessage(query);
-            elements.chatContainer.appendChild(userMessage);
-            scrollToBottom();
+    function scrollToBottom() {
+        elements.chatContainer.scrollTop = elements.chatContainer.scrollHeight;
+    }
 
-            elements.queryInput.value = '';
-            elements.queryInput.style.height = 'auto';
-            elements.sendBtn.disabled = true;
+    function clearWelcomeMessage() {
+        const welcome = elements.chatContainer.querySelector('.welcome-message');
+        if (welcome) welcome.remove();
+    }
 
-            const progressMessage = createProgressMessage();
-            elements.chatContainer.appendChild(progressMessage);
-            scrollToBottom();
+    async function handleLogin(e) {
+        e.preventDefault();
+        const connStr = document.getElementById('connStr').value.trim();
+        const azureEndpoint = document.getElementById('azureEndpoint').value.trim();
+        const azureKey = document.getElementById('azureKey').value.trim();
 
-            if (state.currentEventSource) {
-                state.currentEventSource.close();
-            }
+        elements.loginBtn.disabled = true;
+        elements.loginBtn.textContent = 'Connecting...';
+        elements.loginError.style.display = 'none';
 
-            fetch(`${state.apiBaseUrl}/query_stream`, {
+        try {
+            await login(connStr, azureEndpoint, azureKey);
+            state.isAuthenticated = true;
+            elements.loginModal.classList.remove('active');
+            elements.app.style.display = 'block';
+            elements.queryInput.focus();
+        } catch (error) {
+            elements.loginError.textContent = error.message;
+            elements.loginError.style.display = 'block';
+        } finally {
+            elements.loginBtn.disabled = false;
+            elements.loginBtn.textContent = 'Connect';
+        }
+    }
+
+    function handleLogout() {
+        state.isAuthenticated = false;
+        state.messages = [];
+        elements.app.style.display = 'none';
+        elements.loginModal.classList.add('active');
+        elements.chatContainer.innerHTML = `
+            <div class="welcome-message">
+                <h1 class="welcome-title">Welcome to A11yAssist</h1>
+            </div>
+        `;
+        elements.loginForm.reset();
+    }
+
+    async function handleSendQuery() {
+        const query = elements.queryInput.value.trim();
+        if (!query) return;
+
+        clearWelcomeMessage();
+        const userMessage = createUserMessage(query);
+        elements.chatContainer.appendChild(userMessage);
+        scrollToBottom();
+
+        elements.queryInput.value = '';
+        elements.queryInput.style.height = 'auto';
+        elements.sendBtn.disabled = true;
+
+        const spinnerMessage = createSpinnerMessage();
+        elements.chatContainer.appendChild(spinnerMessage);
+        scrollToBottom();
+
+        try {
+            const response = await fetch(`${state.apiBaseUrl}/query`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({query: query, execute: true}),
                 credentials: 'include'
-            })
-            .then(response => {
-                if (!response.ok) throw new Error('Stream connection failed');
-                
-                const reader = response.body.getReader();
-                const decoder = new TextDecoder();
-                let buffer = '';
-                
-                function processStream() {
-                    reader.read().then(({done, value}) => {
-                        if (done) {
-                            elements.sendBtn.disabled = false;
-                            elements.queryInput.focus();
-                            return;
-                        }
-                        
-                        buffer += decoder.decode(value, {stream: true});
-                        const lines = buffer.split('\n');
-                        buffer = lines.pop();
-                        
-                        for (const line of lines) {
-                            if (line.startsWith('data: ')) {
-                                const jsonStr = line.substring(6);
-                                try {
-                                    const eventData = JSON.parse(jsonStr);
-                                    handleStreamEvent(eventData, progressMessage);
-                                } catch (e) {
-                                    console.error('Failed to parse stream data:', e);
-                                }
-                            }
-                        }
-                        
-                        processStream();
-                    }).catch(error => {
-                        progressMessage.remove();
-                        
-                        const errorResponse = {
-                            narrative: { formatted: '**Error**\n\nFailed to process query stream.' },
-                            execution_error: error.message
-                        };
-                        
-                        const errorMessage = createAssistantMessage(errorResponse);
-                        elements.chatContainer.appendChild(errorMessage);
-                        scrollToBottom();
-                        
-                        elements.sendBtn.disabled = false;
-                        elements.queryInput.focus();
-                    });
-                }
-                
-                processStream();
-            })
-            .catch(error => {
-                progressMessage.remove();
-                
-                const errorResponse = {
-                    narrative: { formatted: '**Error**\n\nFailed to connect to query stream.' },
-                    execution_error: error.message
-                };
-                
-                const errorMessage = createAssistantMessage(errorResponse);
-                elements.chatContainer.appendChild(errorMessage);
-                scrollToBottom();
-                
-                elements.sendBtn.disabled = false;
-                elements.queryInput.focus();
             });
+
+            const data = await response.json();
+            spinnerMessage.remove();
+
+            const assistantMessage = createAssistantMessage(data);
+            elements.chatContainer.appendChild(assistantMessage);
+            scrollToBottom();
+
+        } catch (error) {
+            spinnerMessage.remove();
+            const errorResponse = {
+                narrative: { formatted: '**Error**\n\nFailed to process query.' },
+                execution_error: error.message
+            };
+            const errorMessage = createAssistantMessage(errorResponse);
+            elements.chatContainer.appendChild(errorMessage);
+            scrollToBottom();
+        } finally {
+            elements.sendBtn.disabled = false;
+            elements.queryInput.focus();
         }
+    }
 
-        function handleStreamEvent(eventData, progressMessage) {
-            const step = eventData.step;
-            const message = eventData.message;
-            const progress = eventData.progress || 0;
-            const tables = eventData.tables;
-            
-            if (step === 'complete') {
-                progressMessage.remove();
-                
-                const response = eventData.result;
-                const assistantMessage = createAssistantMessage(response);
-                elements.chatContainer.appendChild(assistantMessage);
-                scrollToBottom();
-                
-                elements.sendBtn.disabled = false;
-                elements.queryInput.focus();
-            } else if (step === 'error') {
-                progressMessage.remove();
-                
-                const errorResponse = {
-                    narrative: { formatted: '**Error**\n\n' + message },
-                    execution_error: eventData.error
-                };
-                
-                const errorMessage = createAssistantMessage(errorResponse);
-                elements.chatContainer.appendChild(errorMessage);
-                scrollToBottom();
-                
-                elements.sendBtn.disabled = false;
-                elements.queryInput.focus();
-            } else {
-                updateProgress(progressMessage, step, message, progress, tables);
-                scrollToBottom();
-            }
+    elements.queryInput.addEventListener('input', function() {
+        this.style.height = 'auto';
+        this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+    });
+
+    elements.queryInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            handleSendQuery();
         }
+    });
 
-        elements.queryInput.addEventListener('input', function() {
-            this.style.height = 'auto';
-            this.style.height = Math.min(this.scrollHeight, 120) + 'px';
-        });
+    elements.loginForm.addEventListener('submit', handleLogin);
+    elements.sendBtn.addEventListener('click', handleSendQuery);
+    elements.logoutBtn.addEventListener('click', handleLogout);
 
-        elements.queryInput.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                handleSendQuery();
-            }
-        });
+    window.togglePanel = togglePanel;
+    window.copyToClipboard = copyToClipboard;
 
-        elements.loginForm.addEventListener('submit', handleLogin);
-        elements.sendBtn.addEventListener('click', handleSendQuery);
-        elements.logoutBtn.addEventListener('click', handleLogout);
+    elements.queryInput.focus();
+</script>
 
-        window.togglePanel = togglePanel;
-        window.copyToClipboard = copyToClipboard;
 
-        elements.queryInput.focus();
-    </script>
 </body>
 </html>
