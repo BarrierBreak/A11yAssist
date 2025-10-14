@@ -12,7 +12,19 @@ from flask_session import Session
 
 app = Flask(__name__)
 
-CORS(app, supports_credentials=True, origins=["*"])
+cors_origins = [
+    "http://localhost:3000",
+    "http://localhost:8080",
+    "http://127.0.0.1:8080",
+    "https://a11yassist.onrender.com/",
+    "https://a11yassist-f.onrender.com",
+]
+
+CORS(app, 
+     supports_credentials=True, 
+     origins=cors_origins,
+     allow_headers=["Content-Type", "Authorization"],
+     methods=["GET", "POST", "OPTIONS"])
 
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "BarrierBreak")
 app.config["SESSION_TYPE"] = "filesystem"
