@@ -8,6 +8,7 @@ import time
 import re
 import os
 from flask_cors import CORS
+from gevent import sleep as gsleep
 from flask_session import Session
 
 app = Flask(__name__)
@@ -16,7 +17,7 @@ cors_origins = [
     "http://localhost:3000",
     "http://localhost:8080",
     "http://127.0.0.1:8080",
-    "https://a11yassist.onrender.com/",
+    "https://a11yassist.onrender.com",
     "https://a11yassist-f.onrender.com",
 ]
 
@@ -28,7 +29,9 @@ CORS(app,
 
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "BarrierBreak")
 app.config["SESSION_TYPE"] = "filesystem"
-app.config["SESSION_FILE_DIR"] = "/tmp/flask_session"
+app.config["SESSION_FILE_DIR"] = os.path.join(os.getcwd(), "flask_session")
+os.makedirs(app.config["SESSION_FILE_DIR"], exist_ok=True)
+
 app.config["SESSION_PERMANENT"] = False
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 app.config["SESSION_COOKIE_SECURE"] = False
@@ -876,60 +879,71 @@ def disable_proxy_buffering(response):
 
 @app.route("/query_stream", methods=["POST"])
 def query_stream_route():
-    """Streaming query endpoint with progress updates"""
-    data = request.get_json()
-    
+    """Streaming query endpoint with progress updates (SSE)"""
+    data = request.get_json(silent=True)
     if not data:
         return jsonify({"error": "JSON body required"}), 400
-    
+
     user_query = data.get("query")
     schema = data.get("schema", "public")
     use_insights = data.get("use_insights", True)
     page = data.get("page", 1)
     force_refresh = data.get("force_refresh", False)
     explicit_tables = data.get("tables")
-    
+
     if not user_query:
         return jsonify({"error": "query is required"}), 400
 
-    # Extract credentials before entering generator
+    # Extract credentials before generator (prevents session locking during long stream)
     conn_str = session.get("conn_str")
     azure_key = session.get("azure_key")
     azure_endpoint = session.get("azure_endpoint")
-    
+
     if not all([conn_str, azure_key, azure_endpoint]):
         return jsonify({"error": "Not authenticated. Please login first."}), 401
 
     def generate_stream():
         try:
+            # initial heartbeat so client knows stream started
+            yield "data: " + json.dumps({"step": "started", "message": "Stream started", "progress": 0}) + "\n\n"
+
+            # small sleep to allow client to register event stream
+            gsleep(0.1)
+
             # Step 1: Load schema
-            yield f"data: {json.dumps({'step': 'schema_loading', 'message': 'Loading database schema...', 'progress': 10})}\n\n"
-            
-            if not SCHEMA_REGISTRY["loaded"]:
+            yield "data: " + json.dumps({"step": "schema_loading", "message": "Loading database schema...", "progress": 10}) + "\n\n"
+            gsleep(0.01)
+
+            # -- YOUR EXISTING LOGIC --
+            # NOTE: reference to functions like load_schema_registry, detect_tables_from_query, etc.
+            # Keep them the same. Ensure none of them attempts to modify `session`.
+
+            if not SCHEMA_REGISTRY.get("loaded"):
                 load_schema_registry(conn_str, schema)
-            
-            yield f"data: {json.dumps({'step': 'schema_loaded', 'message': 'Schema loaded successfully', 'progress': 20})}\n\n"
-            
-            # Step 2: Detect tables
-            yield f"data: {json.dumps({'step': 'table_detection', 'message': 'Detecting relevant tables...', 'progress': 25})}\n\n"
-            
+
+            yield "data: " + json.dumps({"step": "schema_loaded", "message": "Schema loaded successfully", "progress": 20}) + "\n\n"
+            gsleep(0.01)
+
+            # Step 2 detect tables
+            yield "data: " + json.dumps({"step": "table_detection", "message": "Detecting relevant tables...", "progress": 25}) + "\n\n"
             if explicit_tables:
                 table_names = explicit_tables
             else:
                 table_names = detect_tables_from_query(user_query)
-            
+
             tables_str = ', '.join(table_names)
-            yield f"data: {json.dumps({'step': 'tables_detected', 'message': f'Using tables: {tables_str}', 'tables': table_names, 'progress': 35})}\n\n"
-            
-            # Step 3: Load metadata
-            yield f"data: {json.dumps({'step': 'metadata_loading', 'message': 'Loading table metadata...', 'progress': 40})}\n\n"
-            
+            yield "data: " + json.dumps({"step": "tables_detected", "message": f"Using tables: {tables_str}", "tables": table_names, "progress": 35}) + "\n\n"
+            gsleep(0.01)
+
+            # Step 3 load metadata
+            yield "data: " + json.dumps({"step": "metadata_loading", "message": "Loading table metadata...", "progress": 40}) + "\n\n"
+            gsleep(0.01)
+
             all_metadata = {}
             all_insights = {}
-            
+
             for table_name in table_names:
                 cache_key = f"{schema}.{table_name}"
-                
                 if cache_key in METADATA_CACHE and not force_refresh:
                     cached = METADATA_CACHE[cache_key]
                     all_metadata[table_name] = cached["metadata"]
@@ -937,58 +951,61 @@ def query_stream_route():
                 else:
                     metadata = get_table_structure_and_count(conn_str, schema, table_name, include_examples=True)
                     insights = None
-                    
                     if use_insights:
                         insights = call_llm_with_metadata(table_name, metadata, azure_key, azure_endpoint)
-                    
+
                     METADATA_CACHE[cache_key] = {
                         "metadata": metadata,
                         "insights": insights
                     }
-                    
                     all_metadata[table_name] = metadata
                     all_insights[table_name] = insights
-            
-            yield f"data: {json.dumps({'step': 'metadata_loaded', 'message': 'Metadata loaded', 'progress': 50})}\n\n"
-            
-            # Step 4: Generate SQL
-            yield f"data: {json.dumps({'step': 'sql_generation', 'message': 'Generating SQL query...', 'progress': 55})}\n\n"
-            
+
+                # optional heartbeat between tables
+                yield "data: " + json.dumps({"step": "metadata_progress", "table": table_name, "progress": 40}) + "\n\n"
+                gsleep(0.01)
+
+            yield "data: " + json.dumps({"step": "metadata_loaded", "message": "Metadata loaded", "progress": 50}) + "\n\n"
+            gsleep(0.01)
+
+            # Step 4 Generate SQL
+            yield "data: " + json.dumps({"step": "sql_generation", "message": "Generating SQL query...", "progress": 55}) + "\n\n"
+            gsleep(0.01)
+
             generated_sql = generate_multi_table_sql(
-                schema, table_names, user_query, 
+                schema, table_names, user_query,
                 all_metadata, all_insights, azure_key, azure_endpoint
             )
-            
-            yield f"data: {json.dumps({'step': 'sql_generated', 'message': 'SQL generated successfully', 'sql': generated_sql, 'progress': 70})}\n\n"
-            
-            # Step 5: Execute query
-            yield f"data: {json.dumps({'step': 'execution', 'message': 'Executing query...', 'progress': 75})}\n\n"
-            
+
+            yield "data: " + json.dumps({"step": "sql_generated", "message": "SQL generated successfully", "sql": generated_sql, "progress": 70}) + "\n\n"
+            gsleep(0.01)
+
+            # Step 5 Execute query
+            yield "data: " + json.dumps({"step": "execution", "message": "Executing query...", "progress": 75}) + "\n\n"
+
             result = execute_generated_sql(conn_str, generated_sql)
-            raw_results = result["rows"]
-            execution_time = result["execution_time_ms"]
-            
-            yield f"data: {json.dumps({'step': 'executed', 'message': f'Query executed in {execution_time}ms', 'progress': 85})}\n\n"
-            
-            # Step 6: Analyze results
-            yield f"data: {json.dumps({'step': 'analysis', 'message': 'Analyzing results...', 'progress': 87})}\n\n"
-            
+            raw_results = result.get("rows", [])
+            execution_time = result.get("execution_time_ms", 0)
+
+            yield "data: " + json.dumps({"step": "executed", "message": f"Query executed in {execution_time}ms", "progress": 85}) + "\n\n"
+            gsleep(0.01)
+
+            # Step 6 Analyze results
+            yield "data: " + json.dumps({"step": "analysis", "message": "Analyzing results...", "progress": 87}) + "\n\n"
             analysis = analyze_query_results(generated_sql, raw_results)
-            
-            if analysis["query_type"] == "aggregation_grouped":
+
+            if analysis.get("query_type") == "aggregation_grouped":
                 processed_results = analysis["summary"]["enriched_results"]
             else:
                 processed_results = raw_results
-            
-            # Step 7: Generate narrative
-            yield f"data: {json.dumps({'step': 'narrative_generation', 'message': 'Generating narrative...', 'progress': 90})}\n\n"
-            
+
+            # Step 7 Narrative
+            yield "data: " + json.dumps({"step": "narrative_generation", "message": "Generating narrative...", "progress": 90}) + "\n\n"
             narrative = generate_narrative(user_query, analysis, generated_sql, azure_key, azure_endpoint)
-            
-            _, preview_size, scope = determine_narrative_scope(analysis["total_results"])
+
+            _, preview_size, scope = determine_narrative_scope(analysis.get("total_results", 0))
             pagination = paginate_results(processed_results, page, preview_size)
-            
-            # Step 8: Complete
+
             final_response = {
                 "step": "complete",
                 "message": "Query completed successfully",
@@ -1001,15 +1018,17 @@ def query_stream_route():
                     "data": pagination,
                     "metadata": {
                         "execution_time_ms": execution_time,
-                        "query_type": analysis["query_type"],
+                        "query_type": analysis.get("query_type"),
                         "joins_used": len(table_names) > 1
                     },
                     "executed": True
                 }
             }
-            
-            yield f"data: {json.dumps(final_response)}\n\n"
-            
+
+            yield "data: " + json.dumps(final_response) + "\n\n"
+            # final newline and done
+            gsleep(0.01)
+
         except Exception as e:
             error_response = {
                 "step": "error",
@@ -1017,10 +1036,17 @@ def query_stream_route():
                 "error": str(e),
                 "progress": 0
             }
-            yield f"data: {json.dumps(error_response)}\n\n"
-    
-    return Response(generate_stream(), mimetype='text/event-stream')
+            yield "data: " + json.dumps(error_response) + "\n\n"
 
+    # Important: explicit headers to help proxies & clients
+    headers = {
+        "Cache-Control": "no-cache",
+        "X-Accel-Buffering": "no",
+        "Connection": "keep-alive"
+    }
+    return Response(generate_stream(), mimetype="text/event-stream", headers=headers)
 
+# ---------- Run (only used for local dev) ----------
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8080)
+    # For local testing only. In Render, gunicorn will be used.
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)), debug=False)
