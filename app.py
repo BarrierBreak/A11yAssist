@@ -16,8 +16,7 @@ cors_origins = [
     "http://localhost:3000",
     "http://localhost:8080",
     "http://127.0.0.1:8080",
-    "https://a11yassist.onrender.com",
-    "https://a11yassist-f.onrender.com",
+    "http://ai-test-aitest-lef0n4-8c8462-74-208-202-238.traefik.me",
 ]
 
 CORS(app, 
