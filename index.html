@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="A11yAssist by BarrierBreak - Natural Language Database Query Interface">
-    <title>A11yAssist - BarrierBreak</title>
+    <title>NL to SQL</title>
     <style>
         * {
             margin: 0;
@@ -12,1162 +11,551 @@
             box-sizing: border-box;
         }
 
-        :root {
-            --primary-orange: #FF6B35;
-            --secondary-orange: #FFA07A;
-            --light-orange: #FFE5D9;
-            --pale-orange: #FFF8F3;
-            --dark-text: #2C3E50;
-            --gray-text: #6C757D;
-            --border-color: #FFE5D9;
-            --success-green: #28A745;
-            --error-red: #DC3545;
-            --code-bg: #F5F5F5;
-            --white: #FFFFFF;
-            --shadow: 0 2px 8px rgba(255, 107, 53, 0.1);
-            --shadow-lg: 0 4px 16px rgba(255, 107, 53, 0.15);
-        }
-
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background-color: var(--pale-orange);
-            color: var(--dark-text);
-            line-height: 1.6;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f5f5;
             height: 100vh;
-            overflow: hidden;
-        }
-
-        .header {
-            background: linear-gradient(135deg, var(--primary-orange), var(--secondary-orange));
-            color: var(--white);
-            padding: 1rem 2rem;
             display: flex;
-            justify-content: space-between;
-            align-items: center;
-            box-shadow: var(--shadow-lg);
-            position: relative;
-            z-index: 100;
-        }
-
-        .header-left {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-
-        .logo {
-            font-size: 1.5rem;
-            font-weight: 700;
-            letter-spacing: -0.5px;
-        }
-
-        .company-name {
-            font-size: 0.875rem;
-            opacity: 0.9;
-            font-weight: 500;
-        }
-
-        .header-right {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-
-        .status-indicator {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            font-size: 0.875rem;
-            padding: 0.5rem 1rem;
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 20px;
-        }
-
-        .status-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: var(--success-green);
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-
-        .narrative-content {
-            line-height: 1.8;
-        }
-
-        .narrative-content h3 {
-            color: var(--primary-orange);
-            font-size: 1.1rem;
-            font-weight: 700;
-            margin: 1.5rem 0 1rem 0;
-            border-bottom: 2px solid var(--light-orange);
-            padding-bottom: 0.5rem;
-        }
-
-        .narrative-content h4 {
-            color: var(--dark-text);
-            font-size: 1rem;
-            font-weight: 600;
-            margin: 1.25rem 0 0.75rem 0;
-        }
-
-        .narrative-content strong {
-            color: var(--primary-orange);
-            font-weight: 700;
-        }
-
-        .narrative-content em {
-            color: var(--gray-text);
-            font-style: italic;
-        }
-
-        .narrative-content ol, .narrative-content ul {
-            margin: 1rem 0;
-            padding-left: 1.5rem;
-        }
-
-        .narrative-content ol li, .narrative-content ul li {
-            margin: 0.5rem 0;
-            line-height: 1.6;
-        }
-
-        .narrative-content p {
-            margin: 0.75rem 0;
-        }
-
-        .narrative-content code {
-            background: var(--code-bg);
-            padding: 0.2rem 0.4rem;
-            border-radius: 3px;
-            font-family: 'Courier New', monospace;
-            font-size: 0.9em;
-        }
-
-        .btn-logout {
-            background: rgba(255, 255, 255, 0.2);
-            color: var(--white);
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            padding: 0.5rem 1rem;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 0.875rem;
-            transition: all 0.2s;
-        }
-
-        .btn-logout:hover {
-            background: rgba(255, 255, 255, 0.3);
+            flex-direction: column;
         }
 
         .container {
+            max-width: 1400px;
+            width: 100%;
+            margin: 0 auto;
+            height: 100vh;
             display: flex;
             flex-direction: column;
-            height: calc(100vh - 72px);
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 0;
+            background: white;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
         }
 
-        .chat-container {
+        .header {
+            background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
+            color: white;
+            padding: 20px 30px;
+            border-bottom: 3px solid #e85d22;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .messages {
             flex: 1;
             overflow-y: auto;
-            padding: 2rem;
+            padding: 20px;
             display: flex;
             flex-direction: column;
-            gap: 1.5rem;
-        }
-
-        .chat-container::-webkit-scrollbar {
-            width: 8px;
-        }
-
-        .chat-container::-webkit-scrollbar-track {
-            background: var(--light-orange);
-        }
-
-        .chat-container::-webkit-scrollbar-thumb {
-            background: var(--primary-orange);
-            border-radius: 4px;
+            gap: 20px;
         }
 
         .message {
             display: flex;
-            gap: 1rem;
-            animation: slideIn 0.3s ease-out;
-        }
-
-        @keyframes slideIn {
-            from {
-                opacity: 0;
-                transform: translateY(10px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+            flex-direction: column;
+            gap: 10px;
         }
 
         .message.user {
-            justify-content: flex-end;
+            align-items: flex-end;
         }
 
         .message-content {
-            max-width: 70%;
-            padding: 1rem 1.25rem;
+            max-width: 80%;
+            padding: 12px 16px;
             border-radius: 12px;
-            box-shadow: var(--shadow);
+            word-wrap: break-word;
         }
 
         .message.user .message-content {
-            background: linear-gradient(135deg, var(--primary-orange), var(--secondary-orange));
-            color: var(--white);
-            border-bottom-right-radius: 4px;
+            background: #ff6b35;
+            color: white;
         }
 
         .message.assistant .message-content {
-            background: var(--white);
-            border: 1px solid var(--border-color);
-            border-bottom-left-radius: 4px;
+            background: #f0f0f0;
+            color: #333;
         }
 
-        .message-time {
-            font-size: 0.75rem;
-            opacity: 0.7;
-            margin-top: 0.5rem;
-        }
-
-        .progress-container {
-            margin-top: 1rem;
-            padding: 1rem;
-            background: var(--pale-orange);
+        .sql-block {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 16px;
             border-radius: 8px;
-            border: 1px solid var(--border-color);
-        }
-
-        .progress-bar-wrapper {
-            background: var(--white);
-            height: 8px;
-            border-radius: 4px;
-            overflow: hidden;
-            margin-bottom: 0.5rem;
-        }
-
-        .progress-bar {
-            height: 100%;
-            background: linear-gradient(90deg, var(--primary-orange), var(--secondary-orange));
-            transition: width 0.3s ease;
-            border-radius: 4px;
-        }
-
-        .progress-message {
-            font-size: 0.875rem;
-            color: var(--gray-text);
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .progress-steps {
-            margin-top: 0.75rem;
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-        }
-
-        .progress-step {
-            font-size: 0.813rem;
-            color: var(--gray-text);
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .progress-step.completed {
-            color: var(--success-green);
-        }
-
-        .progress-step.active {
-            color: var(--primary-orange);
-            font-weight: 600;
-        }
-
-        .panel {
-            margin-top: 1rem;
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            background: var(--pale-orange);
-            overflow: hidden;
-        }
-
-        .panel-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0.75rem 1rem;
-            background: var(--white);
-            cursor: pointer;
-            user-select: none;
-            transition: background 0.2s;
-        }
-
-        .panel-header:hover {
-            background: var(--light-orange);
-        }
-
-        .panel-title {
-            font-weight: 600;
-            font-size: 0.875rem;
-            color: var(--dark-text);
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .panel-icon {
-            transition: transform 0.3s;
-        }
-
-        .panel.collapsed .panel-icon {
-            transform: rotate(-90deg);
-        }
-
-        .panel-body {
-            padding: 1rem;
-            max-height: 500px;
-            overflow: auto;
-            transition: max-height 0.3s ease-out;
-        }
-
-        .panel.collapsed .panel-body {
-            max-height: 0;
-            padding: 0;
-            overflow: hidden;
-        }
-
-        .sql-code {
-            background: var(--code-bg);
-            padding: 1rem;
-            border-radius: 6px;
             font-family: 'Courier New', monospace;
-            font-size: 0.875rem;
-            line-height: 1.5;
+            font-size: 13px;
             overflow-x: auto;
-            white-space: pre-wrap;
-            word-break: break-all;
-            color: var(--dark-text);
+            margin: 10px 0;
+            border-left: 4px solid #ff6b35;
         }
 
-        .table-wrapper {
-            overflow-x: auto;
-            border-radius: 6px;
-            border: 1px solid var(--border-color);
-        }
-
-        table {
+        .results-table {
             width: 100%;
             border-collapse: collapse;
-            background: var(--white);
-            font-size: 0.875rem;
+            margin: 10px 0;
+            font-size: 14px;
+            overflow-x: auto;
+            display: block;
         }
 
-        thead {
-            background: linear-gradient(135deg, var(--primary-orange), var(--secondary-orange));
-            color: var(--white);
+        .results-table thead {
+            background: #ff6b35;
+            color: white;
+        }
+
+        .results-table th,
+        .results-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .results-table tbody tr:hover {
+            background: #fff5f2;
+        }
+
+        .results-table th {
+            font-weight: 600;
             position: sticky;
             top: 0;
-            z-index: 10;
         }
 
-        th {
-            padding: 0.75rem;
-            text-align: left;
-            font-weight: 600;
-            white-space: nowrap;
-        }
-
-        tbody tr:nth-child(even) {
-            background: var(--pale-orange);
-        }
-
-        tbody tr:hover {
-            background: var(--light-orange);
-        }
-
-        td {
-            padding: 0.75rem;
-            border-top: 1px solid var(--border-color);
-        }
-
-        .table-info {
-            font-size: 0.875rem;
-            color: var(--gray-text);
-            margin-bottom: 0.75rem;
-            font-weight: 500;
-        }
-
-        .empty-state {
-            text-align: center;
-            padding: 2rem;
-            color: var(--gray-text);
-        }
-
-        .metadata-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
+        .metadata {
+            display: flex;
+            gap: 20px;
+            padding: 12px;
+            background: #fff5f2;
+            border-radius: 8px;
+            font-size: 13px;
+            color: #666;
+            margin: 10px 0;
         }
 
         .metadata-item {
-            background: var(--white);
-            padding: 0.75rem;
-            border-radius: 6px;
-            border: 1px solid var(--border-color);
+            display: flex;
+            gap: 6px;
         }
 
         .metadata-label {
-            font-size: 0.75rem;
-            color: var(--gray-text);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 0.25rem;
-        }
-
-        .metadata-value {
             font-weight: 600;
-            color: var(--dark-text);
-            font-size: 0.95rem;
+            color: #ff6b35;
         }
 
-        .badge {
-            display: inline-block;
-            padding: 0.25rem 0.75rem;
-            border-radius: 12px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            text-transform: uppercase;
+        .response-summary {
+            padding: 16px;
+            background: #fff5f2;
+            border-radius: 8px;
+            border-left: 4px solid #ff6b35;
+            margin: 10px 0;
         }
 
-        .badge-primary {
-            background: var(--light-orange);
-            color: var(--primary-orange);
+        .response-summary h3 {
+            color: #ff6b35;
+            margin-bottom: 8px;
+            font-size: 16px;
         }
 
-        .badge-success {
-            background: #D4EDDA;
-            color: var(--success-green);
+        .response-summary ul {
+            list-style: none;
+            padding-left: 0;
         }
 
-        .tags {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.5rem;
+        .response-summary li {
+            padding: 6px 0;
+            padding-left: 20px;
+            position: relative;
         }
 
-        .tag {
-            padding: 0.25rem 0.75rem;
-            background: var(--light-orange);
-            color: var(--primary-orange);
-            border-radius: 12px;
-            font-size: 0.75rem;
-            font-weight: 500;
+        .response-summary li:before {
+            content: "•";
+            color: #ff6b35;
+            font-weight: bold;
+            position: absolute;
+            left: 0;
+        }
+
+        .error-message {
+            background: #fee;
+            border-left: 4px solid #d32f2f;
+            padding: 16px;
+            border-radius: 8px;
+            color: #d32f2f;
+            margin: 10px 0;
+        }
+
+        .input-area {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #e0e0e0;
         }
 
         .input-container {
-            background: var(--white);
-            border-top: 2px solid var(--border-color);
-            padding: 1.5rem 2rem;
-            box-shadow: 0 -2px 8px rgba(255, 107, 53, 0.1);
-        }
-
-        .input-wrapper {
             display: flex;
-            gap: 1rem;
-            align-items: flex-end;
+            gap: 12px;
             max-width: 1200px;
             margin: 0 auto;
         }
 
         .input-field {
             flex: 1;
-            padding: 0.875rem 1rem;
-            border: 2px solid var(--border-color);
-            border-radius: 8px;
-            font-size: 1rem;
-            font-family: inherit;
-            resize: none;
-            min-height: 44px;
-            max-height: 120px;
+            padding: 14px 18px;
+            border: 2px solid #e0e0e0;
+            border-radius: 24px;
+            font-size: 15px;
+            outline: none;
             transition: border-color 0.2s;
         }
 
         .input-field:focus {
-            outline: none;
-            border-color: var(--primary-orange);
+            border-color: #ff6b35;
         }
 
-        .btn-send {
-            background: linear-gradient(135deg, var(--primary-orange), var(--secondary-orange));
-            color: var(--white);
+        .send-button {
+            padding: 14px 32px;
+            background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
+            color: white;
             border: none;
-            padding: 0.875rem 2rem;
-            border-radius: 8px;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
-            white-space: nowrap;
-            min-height: 44px;
-        }
-
-        .btn-send:hover:not(:disabled) {
-            transform: translateY(-2px);
-            box-shadow: var(--shadow-lg);
-        }
-
-        .btn-send:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-        }
-
-        .spinner {
-            width: 24px;
-            height: 24px;
-            border: 3px solid var(--light-orange);
-            border-top-color: var(--primary-orange);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.6);
-            backdrop-filter: blur(4px);
-            z-index: 1000;
-            align-items: center;
-            justify-content: center;
-            padding: 1rem;
-        }
-
-        .modal.active {
-            display: flex;
-        }
-
-        .modal-content {
-            background: var(--white);
-            padding: 2rem;
-            border-radius: 12px;
-            max-width: 500px;
-            width: 100%;
-            box-shadow: var(--shadow-lg);
-            animation: modalSlideIn 0.3s ease-out;
-        }
-
-        @keyframes modalSlideIn {
-            from {
-                opacity: 0;
-                transform: translateY(-20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .modal-header {
-            text-align: center;
-            margin-bottom: 2rem;
-        }
-
-        .modal-title {
-            font-size: 1.75rem;
-            font-weight: 700;
-            color: var(--primary-orange);
-            margin-bottom: 0.5rem;
-        }
-
-        .modal-subtitle {
-            color: var(--gray-text);
-            font-size: 0.875rem;
-        }
-
-        .form-group {
-            margin-bottom: 1.25rem;
-        }
-
-        .form-label {
-            display: block;
-            margin-bottom: 0.5rem;
-            font-weight: 600;
-            font-size: 0.875rem;
-            color: var(--dark-text);
-        }
-
-        .form-input {
-            width: 100%;
-            padding: 0.75rem;
-            border: 2px solid var(--border-color);
-            border-radius: 6px;
-            font-size: 0.875rem;
-            font-family: inherit;
-            transition: border-color 0.2s;
-        }
-
-        .form-input:focus {
-            outline: none;
-            border-color: var(--primary-orange);
-        }
-
-        .btn-primary {
-            width: 100%;
-            background: linear-gradient(135deg, var(--primary-orange), var(--secondary-orange));
-            color: var(--white);
-            border: none;
-            padding: 0.875rem;
-            border-radius: 6px;
-            font-size: 1rem;
+            border-radius: 24px;
+            font-size: 15px;
             font-weight: 600;
             cursor: pointer;
             transition: transform 0.2s;
         }
 
-        .btn-primary:hover:not(:disabled) {
+        .send-button:hover:not(:disabled) {
             transform: translateY(-2px);
-            box-shadow: var(--shadow-lg);
         }
 
-        .btn-primary:disabled {
-            opacity: 0.6;
+        .send-button:disabled {
+            opacity: 0.5;
             cursor: not-allowed;
         }
 
-        .error-message {
-            background: #F8D7DA;
-            color: var(--error-red);
-            padding: 0.75rem;
-            border-radius: 6px;
-            margin-top: 1rem;
-            font-size: 0.875rem;
-            border: 1px solid var(--error-red);
+        .loading {
+            display: flex;
+            gap: 8px;
+            padding: 12px 16px;
         }
 
-        .error-box {
-            background: #F8D7DA;
-            border: 1px solid var(--error-red);
-            color: var(--error-red);
-            padding: 1rem;
-            border-radius: 6px;
-            margin-top: 0.5rem;
+        .loading-dot {
+            width: 8px;
+            height: 8px;
+            background: #ff6b35;
+            border-radius: 50%;
+            animation: bounce 1.4s infinite ease-in-out both;
         }
 
-        .btn-copy {
-            background: var(--light-orange);
-            color: var(--primary-orange);
-            border: 1px solid var(--primary-orange);
-            padding: 0.5rem 1rem;
-            border-radius: 6px;
-            font-size: 0.75rem;
-            font-weight: 600;
+        .loading-dot:nth-child(1) {
+            animation-delay: -0.32s;
+        }
+
+        .loading-dot:nth-child(2) {
+            animation-delay: -0.16s;
+        }
+
+        @keyframes bounce {
+            0%, 80%, 100% {
+                transform: scale(0);
+            }
+            40% {
+                transform: scale(1);
+            }
+        }
+
+        .empty-state {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #999;
+            gap: 12px;
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            color: #ddd;
+        }
+
+        .example-queries {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .example-query {
+            padding: 8px 16px;
+            background: white;
+            border: 2px solid #ff6b35;
+            color: #ff6b35;
+            border-radius: 20px;
             cursor: pointer;
+            font-size: 13px;
             transition: all 0.2s;
         }
 
-        .btn-copy:hover {
-            background: var(--primary-orange);
-            color: var(--white);
+        .example-query:hover {
+            background: #ff6b35;
+            color: white;
         }
 
-        @media (max-width: 768px) {
-            .header {
-                padding: 1rem;
-                flex-direction: column;
-                gap: 1rem;
-            }
-
-            .header-left, .header-right {
-                width: 100%;
-                justify-content: space-between;
-            }
-
-            .chat-container {
-                padding: 1rem;
-            }
-
-            .message-content {
-                max-width: 85%;
-            }
-
-            .input-container {
-                padding: 1rem;
-            }
-
-            .input-wrapper {
-                flex-direction: column;
-                align-items: stretch;
-            }
-
-            .btn-send {
-                width: 100%;
-            }
-
-            .metadata-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .company-name {
-                display: none;
-            }
-        }
-
-        .welcome-message {
+        .no-results {
+            padding: 16px;
+            background: #fff5f2;
+            border-radius: 8px;
+            color: #666;
             text-align: center;
-            padding: 3rem 2rem;
-            max-width: 600px;
-            margin: 0 auto;
+            margin: 10px 0;
         }
 
-        .welcome-title {
-            font-size: 2rem;
-            color: var(--primary-orange);
-            margin-bottom: 1rem;
-            font-weight: 700;
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
         }
 
-        .welcome-text {
-            color: var(--gray-text);
-            font-size: 1.1rem;
-            line-height: 1.8;
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #ff6b35;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #e85d22;
         }
     </style>
 </head>
 <body>
-    <div id="loginModal" class="modal active">
-        <div class="modal-content">
-            <div class="modal-header">
-                <div class="modal-title">A11yAssist</div>
-                <div class="modal-subtitle">by BarrierBreak</div>
-            </div>
-            <form id="loginForm">
-                <div class="form-group">
-                    <label for="connStr" class="form-label">PostgreSQL Connection String</label>
-                    <input type="text" id="connStr" class="form-input" placeholder="postgresql://user:password@host:port/database" required>
-                </div>
-                <div class="form-group">
-                    <label for="azureEndpoint" class="form-label">Azure OpenAI Endpoint</label>
-                    <input type="text" id="azureEndpoint" class="form-input" placeholder="https://your-resource.openai.azure.com/openai/deployments/..." required>
-                </div>
-                <div class="form-group">
-                    <label for="azureKey" class="form-label">Azure OpenAI API Key</label>
-                    <input type="password" id="azureKey" class="form-input" placeholder="Enter your Azure API key" required>
-                </div>
-                <button type="submit" class="btn-primary" id="loginBtn">Connect</button>
-                <div id="loginError" class="error-message" style="display: none;"></div>
-            </form>
+    <div class="container">
+        <div class="header">
+            <h1>Natural Language to SQL</h1>
         </div>
-    </div>
 
-    <div id="app" style="display: none;">
-        <header class="header">
-            <div class="header-left">
-                <div class="logo">A11yAssist</div>
-                <div class="company-name">BarrierBreak</div>
-            </div>
-            <div class="header-right">
-                <div class="status-indicator">
-                    <span class="status-dot"></span>
-                    <span>Connected</span>
-                </div>
-                <button class="btn-logout" id="logoutBtn">Logout</button>
-            </div>
-        </header>
-
-        <div class="container">
-            <div id="chatContainer" class="chat-container">
-                <div class="welcome-message">
-                    <h1 class="welcome-title">Welcome to A11yAssist</h1>
-                    <ul class="welcome-text">
-        
-        <li>Show count of issues per project filtered by scan results that ended in error.</li>
-        <li>For each project, show total number of issues and total number of activities.</li>
-        <li>List issue counts with their scan result status and project name.</li>
-        <li>List all users with their role names and the count of projects they are assigned to.</li>
-        <li>For each role, show the number of users and total issues in their projects.</li>
-        <li>Show projects with assigned users, their roles, and total page count.</li>
-        <li>Find users with activities logged for issues in their projects and list role.</li>
-        <li>List projects with assigned users, roles, and count of critical issues.</li>
-    </ul>
+        <div class="messages" id="messages">
+            <div class="empty-state">
+                <div class="empty-state-icon">💬</div>
+                <p>Ask a question about your data</p>
+                <div class="example-queries">
+                    <div class="example-query" onclick="askExample('how many fails in each project')">how many fails in each project</div>
+                    <div class="example-query" onclick="askExample('show critical issues')">show critical issues</div>
+                    <div class="example-query" onclick="askExample('count passed issues')">count passed issues</div>
+                    <div class="example-query" onclick="askExample('issues created last 7 days')">issues created last 7 days</div>
                 </div>
             </div>
+        </div>
 
+        <div class="input-area">
             <div class="input-container">
-                <div class="input-wrapper">
-                    <textarea id="queryInput" class="input-field" placeholder="Ask a question about your data..." rows="1" aria-label="Enter your query"></textarea>
-                    <button id="sendBtn" class="btn-send" aria-label="Send query">Send</button>
-                </div>
+                <input 
+                    type="text" 
+                    class="input-field" 
+                    id="queryInput" 
+                    placeholder="Ask a question about your data..."
+                    onkeypress="handleKeyPress(event)"
+                />
+                <button class="send-button" id="sendButton" onclick="sendQuery()">Send</button>
             </div>
         </div>
     </div>
 
-<script>
-    const state = {
-        isAuthenticated: false,
-        apiBaseUrl: getApiBaseUrl(),
-        messages: []
-    };
+    <script>
+        const messagesContainer = document.getElementById('messages');
+        const queryInput = document.getElementById('queryInput');
+        const sendButton = document.getElementById('sendButton');
 
-    function getApiBaseUrl() {
-    const isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname);
-    if (isLocal) return 'http://localhost:8080';
-    return 'http://ai-test-aitest-lef0n4-8c8462-74-208-202-238.traefik.me';
-}
-
-
-    const elements = {
-        loginModal: document.getElementById('loginModal'),
-        loginForm: document.getElementById('loginForm'),
-        loginBtn: document.getElementById('loginBtn'),
-        loginError: document.getElementById('loginError'),
-        app: document.getElementById('app'),
-        chatContainer: document.getElementById('chatContainer'),
-        queryInput: document.getElementById('queryInput'),
-        sendBtn: document.getElementById('sendBtn'),
-        logoutBtn: document.getElementById('logoutBtn')
-    };
-
-    function parseMarkdown(text) {
-        if (!text) return '';
-        let html = text;
-        html = html.replace(/^#### (.*$)/gim, '<h4>$1</h4>');
-        html = html.replace(/^### (.*$)/gim, '<h3>$1</h3>');
-        html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-        html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
-        html = html.replace(/`(.*?)`/g, '<code>$1</code>');
-        html = html.replace(/^\d+\.\s+(.*)$/gim, '<li>$1</li>');
-        html = html.replace(/(<li>.*<\/li>)/s, '<ol>$1</ol>');
-        html = html.split('\n\n').map(para => {
-            if (para.trim() && !para.startsWith('<h') && !para.startsWith('<ol') && !para.startsWith('<ul')) {
-                return '<p>' + para.trim() + '</p>';
+        function handleKeyPress(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                sendQuery();
             }
-            return para;
-        }).join('\n');
-        return html;
-    }
-
-    function renderNarrative(narrativeData) {
-        if (!narrativeData) return '<div class="narrative-content"><p>No narrative available.</p></div>';
-        if (typeof narrativeData === 'object' && narrativeData.formatted) {
-            return `<div class="narrative-content">${parseMarkdown(narrativeData.formatted)}</div>`;
         }
-        if (typeof narrativeData === 'string') {
-            return `<div class="narrative-content">${parseMarkdown(narrativeData)}</div>`;
+
+        function askExample(query) {
+            queryInput.value = query;
+            sendQuery();
         }
-        return '<div class="narrative-content"><p>Unable to render narrative.</p></div>';
-    }
 
-    function formatTimestamp() {
-        const now = new Date();
-        return now.toLocaleTimeString('en-US', {hour: '2-digit', minute: '2-digit'});
-    }
+        function addUserMessage(text) {
+            const emptyState = messagesContainer.querySelector('.empty-state');
+            if (emptyState) {
+                emptyState.remove();
+            }
 
-    function formatColumnName(name) {
-        return name.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-    }
-
-    function escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
-
-    function copyToClipboard(text) {
-        navigator.clipboard.writeText(text);
-    }
-
-    async function login(connStr, azureEndpoint, azureKey) {
-        const response = await fetch(`${state.apiBaseUrl}/login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ conn_str: connStr, azure_endpoint: azureEndpoint, azure_key: azureKey }),
-            credentials: 'include'
-        });
-
-        const text = await response.text();
-        let data;
-        try { data = JSON.parse(text); } 
-        catch { data = { error: text || 'Empty response or non-JSON body' }; }
-
-        if (!response.ok) throw new Error(data.error || `HTTP ${response.status}: ${text}`);
-        return data;
-    }
-
-    function createUserMessage(text) {
-        const messageDiv = document.createElement('div');
-        messageDiv.className = 'message user';
-        messageDiv.innerHTML = `
-            <div class="message-content">
-                <div class="message-text">${escapeHtml(text)}</div>
-                <div class="message-time">${formatTimestamp()}</div>
-            </div>
-        `;
-        return messageDiv;
-    }
-
-    function createSpinnerMessage() {
-        const messageDiv = document.createElement('div');
-        messageDiv.className = 'message assistant';
-        messageDiv.innerHTML = `
-            <div class="message-content">
-                <div class="spinner-container">
-                    <div class="spinner"></div>
-                    <span>Processing your query...</span>
-                </div>
-            </div>
-        `;
-        return messageDiv;
-    }
-
-    function createDataTable(data, pagination) {
-        if (!data || data.length === 0) return '<div class="empty-state">No results found</div>';
-
-        const columns = Object.keys(data[0]);
-        const totalResults = pagination?.total_results || data.length;
-        const pageSize = pagination?.page_size || data.length;
-        const page = pagination?.page || 1;
-        const start = ((page - 1) * pageSize) + 1;
-        const end = Math.min(start + data.length - 1, totalResults);
-
-        let html = `
-            <div class="table-info">Showing ${start}-${end} of ${totalResults} results</div>
-            <div class="table-wrapper">
-                <table>
-                    <thead><tr>${columns.map(col => `<th>${formatColumnName(col)}</th>`).join('')}</tr></thead>
-                    <tbody>
-        `;
-        data.forEach(row => {
-            html += '<tr>';
-            columns.forEach(col => {
-                let value = row[col];
-                if (value === null || value === undefined) value = '<em>null</em>';
-                else if (typeof value === 'object') value = JSON.stringify(value);
-                else value = escapeHtml(String(value));
-                html += `<td>${value}</td>`;
-            });
-            html += '</tr>';
-        });
-        html += '</tbody></table></div>';
-        return html;
-    }
-
-    function createMetadataDisplay(metadata, tablesUsed) {
-        return `
-            <div class="metadata-grid">
-                <div class="metadata-item">
-                    <div class="metadata-label">Execution Time</div>
-                    <div class="metadata-value">${metadata.execution_time_ms}ms</div>
-                </div>
-                <div class="metadata-item">
-                    <div class="metadata-label">Query Type</div>
-                    <div class="metadata-value"><span class="badge badge-primary">${metadata.query_type}</span></div>
-                </div>
-                <div class="metadata-item">
-                    <div class="metadata-label">Joins Used</div>
-                    <div class="metadata-value"><span class="badge ${metadata.joins_used ? 'badge-success' : 'badge-primary'}">${metadata.joins_used ? 'Yes' : 'No'}</span></div>
-                </div>
-                <div class="metadata-item">
-                    <div class="metadata-label">Tables Used</div>
-                    <div class="tags">${tablesUsed.map(table => `<span class="tag">${table}</span>`).join('')}</div>
-                </div>
-            </div>
-        `;
-    }
-
-    function createAssistantMessage(response) {
-        const messageDiv = document.createElement('div');
-        messageDiv.className = 'message assistant';
-
-        const narrative = response.narrative;
-        const hasData = response.data?.results && response.data.results.length > 0;
-        const hasError = response.execution_error;
-
-        let contentHtml = `<div class="message-content">${renderNarrative(narrative)}`;
-
-        if (hasError) contentHtml += `<div class="error-box"><strong>Error:</strong> ${escapeHtml(hasError)}</div>`;
-
-        if (response.generated_sql) {
-            const sqlId = 'sql-' + Date.now();
-            contentHtml += `
-                <div class="panel" id="${sqlId}">
-                    <div class="panel-header" onclick="togglePanel('${sqlId}')">
-                        <div class="panel-title"><span class="panel-icon">▼</span>View SQL Query</div>
-                        <button class="btn-copy" onclick="event.stopPropagation(); copyToClipboard(\`${response.generated_sql.replace(/`/g, '\\`')}\`)">Copy</button>
-                    </div>
-                    <div class="panel-body"><pre class="sql-code">${escapeHtml(response.generated_sql)}</pre></div>
-                </div>
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message user';
+            messageDiv.innerHTML = `
+                <div class="message-content">${escapeHtml(text)}</div>
             `;
-        }
-
-        if (hasData) {
-            const dataId = 'data-' + Date.now();
-            contentHtml += `
-                <div class="panel" id="${dataId}">
-                    <div class="panel-header" onclick="togglePanel('${dataId}')">
-                        <div class="panel-title"><span class="panel-icon">▼</span>Data Preview</div>
-                    </div>
-                    <div class="panel-body">${createDataTable(response.data.results, response.data)}</div>
-                </div>
-            `;
-        }
-
-        if (response.metadata) {
-            const metaId = 'meta-' + Date.now();
-            contentHtml += `
-                <div class="panel collapsed" id="${metaId}">
-                    <div class="panel-header" onclick="togglePanel('${metaId}')">
-                        <div class="panel-title"><span class="panel-icon">▼</span>Query Metadata</div>
-                    </div>
-                    <div class="panel-body">${createMetadataDisplay(response.metadata, response.tables_used)}</div>
-                </div>
-            `;
-        }
-
-        contentHtml += `<div class="message-time">${formatTimestamp()}</div></div>`;
-        messageDiv.innerHTML = contentHtml;
-        return messageDiv;
-    }
-
-    function togglePanel(panelId) {
-        const panel = document.getElementById(panelId);
-        if (panel) panel.classList.toggle('collapsed');
-    }
-
-    function scrollToBottom() {
-        elements.chatContainer.scrollTop = elements.chatContainer.scrollHeight;
-    }
-
-    function clearWelcomeMessage() {
-        const welcome = elements.chatContainer.querySelector('.welcome-message');
-        if (welcome) welcome.remove();
-    }
-
-    async function handleLogin(e) {
-        e.preventDefault();
-        const connStr = document.getElementById('connStr').value.trim();
-        const azureEndpoint = document.getElementById('azureEndpoint').value.trim();
-        const azureKey = document.getElementById('azureKey').value.trim();
-
-        elements.loginBtn.disabled = true;
-        elements.loginBtn.textContent = 'Connecting...';
-        elements.loginError.style.display = 'none';
-
-        try {
-            await login(connStr, azureEndpoint, azureKey);
-            state.isAuthenticated = true;
-            elements.loginModal.classList.remove('active');
-            elements.app.style.display = 'block';
-            elements.queryInput.focus();
-        } catch (error) {
-            elements.loginError.textContent = error.message;
-            elements.loginError.style.display = 'block';
-        } finally {
-            elements.loginBtn.disabled = false;
-            elements.loginBtn.textContent = 'Connect';
-        }
-    }
-
-    function handleLogout() {
-        state.isAuthenticated = false;
-        state.messages = [];
-        elements.app.style.display = 'none';
-        elements.loginModal.classList.add('active');
-        elements.chatContainer.innerHTML = `
-            <div class="welcome-message">
-                <h1 class="welcome-title">Welcome to A11yAssist</h1>
-            </div>
-        `;
-        elements.loginForm.reset();
-    }
-
-    async function handleSendQuery() {
-        const query = elements.queryInput.value.trim();
-        if (!query) return;
-
-        clearWelcomeMessage();
-        const userMessage = createUserMessage(query);
-        elements.chatContainer.appendChild(userMessage);
-        scrollToBottom();
-
-        elements.queryInput.value = '';
-        elements.queryInput.style.height = 'auto';
-        elements.sendBtn.disabled = true;
-
-        const spinnerMessage = createSpinnerMessage();
-        elements.chatContainer.appendChild(spinnerMessage);
-        scrollToBottom();
-
-        try {
-            const response = await fetch(`${state.apiBaseUrl}/query`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({query: query, execute: true}),
-                credentials: 'include'
-            });
-        
-            const data = await response.json();
-            spinnerMessage.remove();
-        
-            const assistantMessage = createAssistantMessage(data);
-            elements.chatContainer.appendChild(assistantMessage);
+            messagesContainer.appendChild(messageDiv);
             scrollToBottom();
-        } catch (error) {
-            spinnerMessage.remove();
-            const errorResponse = {
-                narrative: { formatted: '**Error**\n\nFailed to process query.' },
-                execution_error: error.message
+        }
+
+        function addLoadingMessage() {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message assistant';
+            messageDiv.id = 'loading-message';
+            messageDiv.innerHTML = `
+                <div class="loading">
+                    <div class="loading-dot"></div>
+                    <div class="loading-dot"></div>
+                    <div class="loading-dot"></div>
+                </div>
+            `;
+            messagesContainer.appendChild(messageDiv);
+            scrollToBottom();
+        }
+
+        function removeLoadingMessage() {
+            const loadingMsg = document.getElementById('loading-message');
+            if (loadingMsg) {
+                loadingMsg.remove();
+            }
+        }
+
+        function addAssistantMessage(data) {
+            removeLoadingMessage();
+
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message assistant';
+
+            let content = '';
+
+            if (data.success) {
+                // SQL Query
+                if (data.sql) {
+                    content += `<div class="sql-block">${escapeHtml(data.sql)}</div>`;
+                }
+
+                // Metadata
+                if (data.metadata) {
+                    content += `
+                        <div class="metadata">
+                            <div class="metadata-item">
+                                <span class="metadata-label">Rows:</span>
+                                <span>${data.metadata.row_count}</span>
+                            </div>
+                            <div class="metadata-item">
+                                <span class="metadata-label">Execution:</span>
+                                <span>${data.metadata.execution_time_seconds}s</span>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                // Results Table
+                if (data.results && data.results.length > 0) {
+                    content += '<div style="overflow-x: auto;">';
+                    content += '<table class="results-table"><thead><tr>';
+                    
+                    const columns = Object.keys(data.results[0]);
+                    columns.forEach(col => {
+                        content += `<th>${escapeHtml(col)}</th>`;
+                    });
+                    content += '</tr></thead><tbody>';
+
+                    data.results.forEach(row => {
+                        content += '<tr>';
+                        columns.forEach(col => {
+                            const value = row[col];
+                            const displayValue = value === null ? '<em>null</em>' : escapeHtml(String(value));
+                            content += `<td>${displayValue}</td>`;
+                        });
+                        content += '</tr>';
+                    });
+
+                    content += '</tbody></table></div>';
+                } else if (data.results && data.results.length === 0) {
+                    content += '<div class="no-results">No results found</div>';
+                }
+
+                // Response Summary
+                if (data.response) {
+                    content += '<div class="response-summary">';
+                    if (data.response.summary) {
+                        content += `<h3>Summary</h3><p>${escapeHtml(data.response.summary)}</p>`;
+                    }
+                    if (data.response.key_findings && data.response.key_findings.length > 0) {
+                        content += '<h3 style="margin-top: 12px;">Key Findings</h3><ul>';
+                        data.response.key_findings.forEach(finding => {
+                            content += `<li>${escapeHtml(finding)}</li>`;
+                        });
+                        content += '</ul>';
+                    }
+                    content += '</div>';
+                }
+            } else {
+                // Error message
+                content += `
+                    <div class="error-message">
+                        <strong>Error:</strong> ${escapeHtml(data.error || 'An error occurred')}
+                    </div>
+                `;
+                if (data.sql) {
+                    content += `<div class="sql-block">${escapeHtml(data.sql)}</div>`;
+                }
+            }
+
+            messageDiv.innerHTML = content;
+            messagesContainer.appendChild(messageDiv);
+            scrollToBottom();
+        }
+
+        async function sendQuery() {
+            const question = queryInput.value.trim();
+            if (!question) return;
+
+            sendButton.disabled = true;
+            queryInput.disabled = true;
+
+            addUserMessage(question);
+            addLoadingMessage();
+
+            try {
+                const response = await fetch('/api/query', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ question })
+                });
+
+                const data = await response.json();
+                addAssistantMessage(data);
+            } catch (error) {
+                removeLoadingMessage();
+                addAssistantMessage({
+                    success: false,
+                    error: `Network error: ${error.message}`
+                });
+            } finally {
+                sendButton.disabled = false;
+                queryInput.disabled = false;
+                queryInput.value = '';
+                queryInput.focus();
+            }
+        }
+
+        function scrollToBottom() {
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function escapeHtml(text) {
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
             };
-            const errorMessage = createAssistantMessage(errorResponse);
-            elements.chatContainer.appendChild(errorMessage);
-            scrollToBottom();
+            return text.replace(/[&<>"']/g, m => map[m]);
         }
- finally {
-            elements.sendBtn.disabled = false;
-            elements.queryInput.focus();
-        }
-    }
 
-    elements.queryInput.addEventListener('input', function() {
-        this.style.height = 'auto';
-        this.style.height = Math.min(this.scrollHeight, 120) + 'px';
-    });
-
-    elements.queryInput.addEventListener('keydown', function(e) {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            handleSendQuery();
-        }
-    });
-
-    elements.loginForm.addEventListener('submit', handleLogin);
-    elements.sendBtn.addEventListener('click', handleSendQuery);
-    elements.logoutBtn.addEventListener('click', handleLogout);
-
-    window.togglePanel = togglePanel;
-    window.copyToClipboard = copyToClipboard;
-
-    elements.queryInput.focus();
-</script>
-
-
+        // Focus input on load
+        queryInput.focus();
+    </script>
 </body>
 </html>
